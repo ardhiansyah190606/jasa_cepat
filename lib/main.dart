@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:jasa_cepat/features/auth/screen/login_screen.dart'; // Import halaman login
+import 'package:jasa_cepat/features/auth/screen/splash_screen.dart';
 
 void main() {
   runApp(const JasaCepatApp());
@@ -18,7 +18,7 @@ class JasaCepatApp extends StatelessWidget {
         fontFamily: 'Roboto',
         useMaterial3: true,
       ),
-      home: const LoginScreen(), // Jalankan login screen sebagai awalan
+      home: const SplashScreen(), // Memulai aplikasi dari Splash Screen
     );
   }
 }
