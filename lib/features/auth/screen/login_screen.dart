@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jasa_cepat/features/admin/screen/admin_screen.dart';
 import 'package:jasa_cepat/features/auth/screen/home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -9,21 +10,15 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _nameController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _emailController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-
-  @override
-  void initState() {
-    super.initState();
-  }
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  bool _isPasswordVisible = false;
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _phoneController.dispose();
     _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -33,106 +28,117 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 20),
-                
-                // LOGO ANDALAN KELOMPOK 9 YANG SUDAH BERHASIL MUNCUL
-                Center(
-                  child: Image.asset(
-                    'assets/images/Logo.png',
-                    height: 120,
-                    fit: BoxFit.contain,
-                  ),
+                const Text(
+                  'Selamat Datang Kembali!',
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black87),
                 ),
-                const SizedBox(height: 24),
-                const Text('Daftar / Masuk Akun', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
-                Text('Lengkapi data diri Anda di bawah ini untuk mulai memanggil teknisi.', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
-                const SizedBox(height: 24),
-                
-                // Input Nama
-                const Text('Nama Lengkap', style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                TextFormField(
-                  controller: _nameController,
-                  decoration: InputDecoration(
-                    hintText: 'Nama lengkap Anda', 
-                    prefixIcon: const Icon(Icons.person_outline), 
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))
-                  ),
-                  validator: (value) => value == null || value.trim().isEmpty ? 'Nama tidak boleh kosong' : null,
+                Text(
+                  'Silakan masuk akun JasaCepat Anda.',
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 40),
 
                 // Input Email
-                const Text('Alamat Gmail', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Alamat Email', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
-                    hintText: 'nama@gmail.com', 
-                    prefixIcon: const Icon(Icons.email_outlined), 
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))
+                    hintText: 'contoh: user@gmail.com',
+                    prefixIcon: const Icon(Icons.email_outlined, color: Colors.grey),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) return 'Gmail tidak boleh kosong';
-                    if (!value.contains('@')) return 'Format Gmail salah';
+                    if (value == null || value.isEmpty) {
+                      return 'Email tidak boleh kosong';
+                    }
+                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                      return 'Masukkan format email yang valid';
+                    }
                     return null;
                   },
                 ),
                 const SizedBox(height: 20),
 
-                // Input Nomor HP - BAGIAN YANG DIPERBAIKI AGAR TETAP DAN TIDAK HILANG
-                const Text('Nomor Handphone', style: TextStyle(fontWeight: FontWeight.bold)),
+                // Input Password
+                const Text('Password', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 8),
                 TextFormField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  // Menghilangkan prefixText eksternal agar teks tidak tabrakan dengan keyboard bawaan HP
+                  controller: _passwordController,
+                  obscureText: !_isPasswordVisible,
                   decoration: InputDecoration(
-                    hintText: 'Contoh: 08123456789',
-                    prefixIcon: const Icon(Icons.phone_android_outlined),
+                    hintText: 'Masukkan password',
+                    prefixIcon: const Icon(Icons.lock_outline, color: Colors.grey),
+                    suffixIcon: IconButton(
+                      icon: Icon(_isPasswordVisible ? Icons.visibility : Icons.visibility_off, color: Colors.grey),
+                      onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+                    ),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  // Validator diperkuat agar input nomor HP wajib diisi angka valid
                   validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Nomor HP tidak boleh kosong';
-                    }
-                    if (value.trim().length < 9) {
-                      return 'Nomor HP terlalu pendek';
+                    if (value == null || value.isEmpty) {
+                      return 'Password tidak boleh kosong';
                     }
                     return null;
                   },
                 ),
                 const SizedBox(height: 32),
 
-                // Tombol Masuk
+                // Tombol login dengan validasi akun demo
                 SizedBox(
                   width: double.infinity,
                   height: 52,
                   child: ElevatedButton(
                     onPressed: () {
                       if (_formKey.currentState!.validate()) {
-                        Navigator.pushReplacement(
-                          context, 
-                          MaterialPageRoute(builder: (context) => const HomeScreen())
-                        );
+                        String email = _emailController.text.trim();
+                        String password = _passwordController.text.trim();
+
+                        // Validasi akun demo
+                        if (email == 'admin@gmail.com' && password == 'admin123') {
+                          // Arahkan ke halaman admin
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (context) => const AdminDashboard()),
+                          );
+                        } else if (email == 'user@gmail.com' && password == 'user123') {
+                          // Arahkan ke halaman utama pengguna
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (context) => const HomeScreen()),
+                          );
+                        } else {
+                          // Tampilkan pesan jika akun tidak valid
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Email atau Password salah!\nUser: user@gmail.com (user123)\nAdmin: admin@gmail.com (admin123)'),
+                              backgroundColor: Colors.red,
+                              duration: Duration(seconds: 4),
+                            ),
+                          );
+                        }
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue, 
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), 
-                      elevation: 0
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 0,
                     ),
-                    child: const Text('Masuk / Daftar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                    child: const Text('Masuk', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
-                )
+                ),
               ],
             ),
           ),
