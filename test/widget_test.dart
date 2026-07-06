@@ -1,12 +1,5 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:jasa_cepat/main.dart';
 
 void main() {
@@ -14,16 +7,21 @@ void main() {
     // 1. Build aplikasi JasaCepatApp dan picu frame pertama.
     await tester.pumpWidget(const JasaCepatApp());
 
-    // 2. Verifikasi bahwa teks 'Selamat Datang di JasaCepat' muncul di layar awal.
-    expect(find.text('Selamat Datang di JasaCepat'), findsOneWidget);
+    // 2. Verifikasi bahwa teks 'JasaCepat' muncul di Splash Screen.
+    expect(find.text('JasaCepat'), findsOneWidget);
+    expect(find.text('Teknisi Terpercaya dalam Genggaman'), findsOneWidget);
 
-    // 3. Verifikasi bahwa teks panduan nomor handphone juga muncul.
-    expect(
-      find.text('Masuk dengan nomor handphone Anda untuk mulai memanggil teknisi terdekat.'),
-      findsOneWidget,
-    );
+    // 3. Majukan waktu agar Splash Screen bertransisi ke Halaman Login.
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
 
-    // 4. Verifikasi bahwa tombol 'Masuk / Daftar' tersedia di halaman login.
-    expect(find.text('Masuk / Daftar'), findsOneWidget);
+    // 4. Verifikasi halaman login dimuat dengan benar.
+    expect(find.text('Selamat Datang Kembali!'), findsOneWidget);
+    expect(find.text('Silakan masuk akun JasaCepat Anda.'), findsOneWidget);
+    expect(find.text('Alamat Email'), findsOneWidget);
+    expect(find.text('Password'), findsOneWidget);
+
+    // 5. Verifikasi tombol 'Masuk' ada.
+    expect(find.widgetWithText(ElevatedButton, 'Masuk'), findsOneWidget);
   });
 }

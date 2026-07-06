@@ -37,6 +37,8 @@ dependencies:
 
   # API Client (Pusat koneksi data internet/backend)
   dio: ^5.4.0 # 👈 TAMBAHAN PAKET DI SINI
+  shared_preferences: ^2.5.5
+  supabase_flutter: ^2.15.3
 
 dev_dependencies:
   flutter_test:

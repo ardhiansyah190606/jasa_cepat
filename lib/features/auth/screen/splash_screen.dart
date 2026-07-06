@@ -81,7 +81,7 @@ class _SplashScreenState extends State<SplashScreen>
                         16.0,
                       ), // Jarak aman logo di dalam kotak
                       child: Image.asset(
-                        'assets/images/logo polos.png', // Menggunakan logo polos pilihan Anda
+                        'assets/images/Logo.png',
                         fit: BoxFit.contain,
                       ),
                     ),

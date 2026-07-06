@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:jasa_cepat/core/app_storage_service.dart';
 import 'package:jasa_cepat/features/admin/screen/admin_screen.dart';
 import 'package:jasa_cepat/features/auth/screen/home_screen.dart';
+import 'package:jasa_cepat/features/auth/screen/register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,6 +16,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -95,49 +98,107 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                // Tombol login dengan validasi akun demo
+                // Tombol login dengan validasi akun demo dan registrasi lokal
                 SizedBox(
                   width: double.infinity,
                   height: 52,
                   child: ElevatedButton(
-                    onPressed: () {
-                      if (_formKey.currentState!.validate()) {
-                        String email = _emailController.text.trim();
-                        String password = _passwordController.text.trim();
+                    onPressed: _isLoading
+                        ? null
+                        : () async {
+                            if (_formKey.currentState!.validate()) {
+                              setState(() => _isLoading = true);
+                              String email = _emailController.text.trim();
+                              String password = _passwordController.text.trim();
 
-                        // Validasi akun demo
-                        if (email == 'admin@gmail.com' && password == 'admin123') {
-                          // Arahkan ke halaman admin
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (context) => const AdminDashboard()),
-                          );
-                        } else if (email == 'user@gmail.com' && password == 'user123') {
-                          // Arahkan ke halaman utama pengguna
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (context) => const HomeScreen()),
-                          );
-                        } else {
-                          // Tampilkan pesan jika akun tidak valid
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Email atau Password salah!\nUser: user@gmail.com (user123)\nAdmin: admin@gmail.com (admin123)'),
-                              backgroundColor: Colors.red,
-                              duration: Duration(seconds: 4),
-                            ),
-                          );
-                        }
-                      }
-                    },
+                              try {
+                                final profile = await AppStorageService().authenticateUser(
+                                  email: email,
+                                  password: password,
+                                );
+
+                                if (profile.isNotEmpty) {
+                                  final role = profile['role']?.toString();
+                                  if (mounted) {
+                                    if (role == 'admin') {
+                                      Navigator.pushReplacement(
+                                        context,
+                                        MaterialPageRoute(builder: (context) => const AdminDashboard()),
+                                      );
+                                    } else {
+                                      Navigator.pushReplacement(
+                                        context,
+                                        MaterialPageRoute(builder: (context) => const HomeScreen()),
+                                      );
+                                    }
+                                  }
+                                } else {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Email atau Password salah!\nJika belum punya akun, silakan daftar terlebih dahulu.',
+                                        ),
+                                        backgroundColor: Colors.red,
+                                        duration: Duration(seconds: 4),
+                                      ),
+                                    );
+                                  }
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Terjadi kesalahan: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              } finally {
+                                if (mounted) {
+                                  setState(() => _isLoading = false);
+                                }
+                              }
+                            }
+                          },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       elevation: 0,
                     ),
-                    child: const Text('Masuk', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          )
+                        : const Text('Masuk', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
+                ),
+                const SizedBox(height: 24),
+
+                // Link Pendaftaran
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Belum memiliki akun? ',
+                      style: TextStyle(color: Colors.grey[600]),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                        );
+                      },
+                      child: const Text(
+                        'Daftar Sekarang',
+                        style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
