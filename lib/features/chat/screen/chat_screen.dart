@@ -1,23 +1,36 @@
 import 'package:flutter/material.dart';
 
 class ChatScreen extends StatelessWidget {
-  const ChatScreen({super.key});
+  final String contactName;
+  final String subtitle;
+  final bool isCustomerService;
+
+  const ChatScreen({
+    super.key,
+    this.contactName = 'Budi Setiawan',
+    this.subtitle = 'Teknisi AC',
+    this.isCustomerService = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final messages = [
-      _ChatMessage(text: 'Halo pak, saya sudah di jalan ya menuju rumah.', isMe: false, time: '14:25'),
-      _ChatMessage(text: 'Siap, saya menunggu di rumah.', isMe: true, time: '14:26'),
-      _ChatMessage(text: 'Terima kasih, teknisi akan tiba sekitar 10 menit lagi.', isMe: false, time: '14:27'),
-    ];
+    final messages = isCustomerService
+        ? [
+            _ChatMessage(text: 'Halo, selamat datang di CS JasaCepat. Ada yang bisa kami bantu?', isMe: false, time: 'Sekarang'),
+          ]
+        : [
+            _ChatMessage(text: 'Halo pak, saya sudah di jalan ya menuju rumah.', isMe: false, time: '14:25'),
+            _ChatMessage(text: 'Siap, saya menunggu di rumah.', isMe: true, time: '14:26'),
+            _ChatMessage(text: 'Terima kasih, teknisi akan tiba sekitar 10 menit lagi.', isMe: false, time: '14:27'),
+          ];
 
     return Scaffold(
       appBar: AppBar(
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Chat', style: TextStyle(fontSize: 18)),
-            Text('Budi Setiawan', style: TextStyle(fontSize: 12)),
+            const Text('Chat', style: TextStyle(fontSize: 18)),
+            Text('$contactName - $subtitle', style: const TextStyle(fontSize: 12)),
           ],
         ),
         backgroundColor: Colors.blue,

@@ -7,8 +7,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Supabase.initialize(
-    url: 'https://lohgzrbhyuvgztoivwxe.supabase.co',
-    anonKey: 'sb_publishable_udZPxcouemCprT4lpmc2SQ_wmwBOSEI',
+    url: 'https://lhnpsmgemofpmtcxgyye.supabase.co',
+    anonKey: 'sb_publishable_x4RR8KI_bblhRF9aYFWlAg_rQ68OJLa',
   );
 
   // Inisialisasi akun demo default jika belum ada

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:jasa_cepat/core/app_storage_service.dart';
+import 'package:jasa_cepat/core/location_recommendation.dart';
+import 'package:jasa_cepat/features/auth/screen/edit_profile_screen.dart';
 import 'package:jasa_cepat/features/auth/screen/login_screen.dart';
 import 'package:jasa_cepat/features/chat/screen/chat_screen.dart';
 import 'package:jasa_cepat/features/home/edit_location_screen.dart';
@@ -26,7 +28,55 @@ class _HomeScreenState extends State<HomeScreen> {
   // Data dari database
   List<ServiceItem> _services = [];
   List<PlaceItem> _places = [];
+  List<OrderItem> _orders = [];
   bool _isLoadingServices = true;
+  bool _isLoadingOrders = true;
+  static const String _allServiceCategoriesLabel = 'Semua';
+  String _selectedServiceCategory = _allServiceCategoriesLabel;
+
+  List<ServiceDistance> get _recommendedServices =>
+      LocationRecommendation.nearestServices(
+        services: _services,
+        places: _places,
+        userLat: _userLat,
+        userLng: _userLng,
+        maxDistanceKm: LocationRecommendation.maxNearbyDistanceKm,
+        includeWithoutLocation: false,
+      );
+
+  List<PlaceDistance> get _recommendedPlaces =>
+      LocationRecommendation.nearestPlaces(
+        places: _places,
+        userLat: _userLat,
+        userLng: _userLng,
+        maxDistanceKm: LocationRecommendation.maxNearbyDistanceKm,
+      );
+
+  List<String> get _serviceCategories {
+    final categories =
+        _services
+            .map((service) => service.category.trim())
+            .where((category) => category.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    return [_allServiceCategoriesLabel, ...categories];
+  }
+
+  List<ServiceItem> get _filteredServices {
+    if (_selectedServiceCategory == _allServiceCategoriesLabel) {
+      return _services;
+    }
+
+    return _services
+        .where(
+          (service) =>
+              service.category.trim().toLowerCase() ==
+              _selectedServiceCategory.toLowerCase(),
+        )
+        .toList();
+  }
 
   @override
   void initState() {
@@ -34,6 +84,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadProfile();
     _loadLocation();
     _loadServicesAndPlaces();
+    _loadOrders();
   }
 
   Future<void> _loadProfile() async {
@@ -72,14 +123,41 @@ class _HomeScreenState extends State<HomeScreen> {
       final services = await AppStorageService().getServices();
       final places = await AppStorageService().getPlaces();
       if (mounted) {
+        final categories = services
+            .map((service) => service.category.trim().toLowerCase())
+            .where((category) => category.isNotEmpty)
+            .toSet();
+        final selectedStillAvailable =
+            _selectedServiceCategory == _allServiceCategoriesLabel ||
+            categories.contains(_selectedServiceCategory.toLowerCase());
+
         setState(() {
           _services = services;
           _places = places;
+          if (!selectedStillAvailable) {
+            _selectedServiceCategory = _allServiceCategoriesLabel;
+          }
           _isLoadingServices = false;
         });
       }
     } catch (_) {
       if (mounted) setState(() => _isLoadingServices = false);
+    }
+  }
+
+  Future<void> _loadOrders() async {
+    try {
+      final profile = await AppStorageService().getProfile();
+      final email = profile['email']?.toString() ?? _userEmail;
+      final orders = await AppStorageService().getOrders(userEmail: email);
+      if (mounted) {
+        setState(() {
+          _orders = orders;
+          _isLoadingOrders = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingOrders = false);
     }
   }
 
@@ -121,14 +199,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Fallback jika belum ada data dari admin
-  List<Map<String, dynamic>> get _defaultCategories => [
-        {'name': 'Servis AC', 'icon': Icons.ac_unit, 'color': Colors.blue},
-        {'name': 'Potong Rumput', 'icon': Icons.grass, 'color': Colors.green},
-        {'name': 'Kuras Toren', 'icon': Icons.water_drop, 'color': Colors.cyan},
-        {'name': 'Pasang Lampu', 'icon': Icons.lightbulb, 'color': Colors.amber},
-      ];
-
   Future<void> _openEditLocation() async {
     final result = await Navigator.push(
       context,
@@ -143,6 +213,41 @@ class _HomeScreenState extends State<HomeScreen> {
     if (result == true) {
       await _loadLocation();
     }
+  }
+
+  Future<void> _openEditProfile() async {
+    final updated = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            EditProfileScreen(currentName: _userName, currentEmail: _userEmail),
+      ),
+    );
+
+    if (updated == true) {
+      await _loadProfile();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profil berhasil diperbarui.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  void _openCustomerServiceChat() {
+    setState(() => _currentIndex = 2);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ChatScreen(
+          contactName: 'Customer Service JasaCepat',
+          subtitle: 'Pusat Bantuan CS',
+          isCustomerService: true,
+        ),
+      ),
+    );
   }
 
   @override
@@ -170,7 +275,11 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_none, color: Colors.black, size: 26),
+            icon: const Icon(
+              Icons.notifications_none,
+              color: Colors.black,
+              size: 26,
+            ),
             onPressed: () {},
           ),
           IconButton(
@@ -201,10 +310,22 @@ class _HomeScreenState extends State<HomeScreen> {
           unselectedFontSize: 12,
           selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
           items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Beranda'),
-            BottomNavigationBarItem(icon: Icon(Icons.assignment_outlined), label: 'Pesanan'),
-            BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
-            BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profil'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_filled),
+              label: 'Beranda',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.assignment_outlined),
+              label: 'Pesanan',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.chat_bubble_outline),
+              label: 'Chat',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              label: 'Profil',
+            ),
           ],
         ),
       ),
@@ -217,6 +338,7 @@ class _HomeScreenState extends State<HomeScreen> {
       onRefresh: () async {
         await _loadLocation();
         await _loadServicesAndPlaces();
+        await _loadOrders();
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -253,7 +375,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: [
                             const Text(
                               'Lokasi Anda',
-                              style: TextStyle(fontSize: 11, color: Colors.grey),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey,
+                              ),
                             ),
                             Text(
                               _userAddress,
@@ -268,7 +393,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.blue.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
@@ -304,7 +432,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
@@ -318,10 +449,18 @@ class _HomeScreenState extends State<HomeScreen> {
                       Expanded(
                         child: Text(
                           'Lihat Teknisi di Peta',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
-                      Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 14),
+                      Icon(
+                        Icons.arrow_forward_ios,
+                        color: Colors.white70,
+                        size: 14,
+                      ),
                     ],
                   ),
                 ),
@@ -333,7 +472,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 'Layanan yang Anda Butuhkan?',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               _isLoadingServices
                   ? const Center(
                       child: Padding(
@@ -342,26 +481,34 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     )
                   : _services.isEmpty
-                      ? _buildDefaultGrid()
-                      : _buildServicesGrid(),
+                  ? _buildEmptyState(
+                      icon: Icons.design_services_outlined,
+                      title: 'Belum ada jasa tersedia',
+                      message:
+                          'Admin belum menambahkan layanan. Silakan cek lagi nanti.',
+                    )
+                  : _buildServicesGrid(),
               const SizedBox(height: 24),
 
               // === TEMPAT JASA (dari database admin) ===
-              if (_places.isNotEmpty) ...[
+              if (_recommendedPlaces.isNotEmpty) ...[
                 const Text(
                   'Tempat Penyedia Jasa',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
-                  height: 120,
+                  height: 138,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    itemCount: _places.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    itemCount: _recommendedPlaces.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 10),
                     itemBuilder: (context, index) {
-                      final place = _places[index];
-                      return _buildPlaceCard(place);
+                      final recommendation = _recommendedPlaces[index];
+                      return _buildPlaceCard(
+                        recommendation.place,
+                        distanceLabel: recommendation.distanceLabel,
+                      );
                     },
                   ),
                 ),
@@ -374,9 +521,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              _buildMitraCard('Budi Setiawan', 'Spesialis AC', '4.8', '350m'),
-              const SizedBox(height: 8),
-              _buildMitraCard('Slamet Riyadi', 'Ahli Kelistrikan', '4.9', '800m'),
+              _buildNearbyTechnicianList(),
               const SizedBox(height: 16),
             ],
           ),
@@ -386,97 +531,139 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildServicesGrid() {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.78,
-      ),
-      itemCount: _services.length,
-      itemBuilder: (context, index) {
-        final service = _services[index];
-        final color = _getCategoryColor(service.category);
-        return GestureDetector(
-          onTap: () async {
-            // Cari place terkait
-            PlaceItem? place;
-            if (service.placeId.isNotEmpty) {
-              try {
-                place = _places.firstWhere((p) => p.id == service.placeId);
-              } catch (_) {}
-            }
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ServiceDetailScreen(service: service, place: place),
-              ),
-            );
-          },
-          child: Column(
-            children: [
-              CircleAvatar(
-                radius: 28,
-                backgroundColor: color.withOpacity(0.1),
-                child: Icon(_resolveIcon(service.iconName), color: color, size: 26),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                service.name,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
-              ),
-              Text(
-                'Rp ${_formatHarga(service.price)}',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 9, color: Colors.grey[500]),
-              ),
-            ],
+    final categories = _serviceCategories;
+    final services = _filteredServices;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (categories.length > 1) ...[
+          _buildServiceCategorySelector(categories),
+          const SizedBox(height: 12),
+        ],
+        if (services.isEmpty)
+          _buildEmptyState(
+            icon: Icons.category_outlined,
+            title: 'Belum ada jasa di kategori ini',
+            message: 'Pilih kategori lain untuk melihat layanan tersedia.',
+          )
+        else
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+              childAspectRatio: 0.82,
+            ),
+            itemCount: services.length,
+            itemBuilder: (context, index) {
+              final service = services[index];
+              final color = _getCategoryColor(service.category);
+              return GestureDetector(
+                onTap: () async {
+                  PlaceItem? place;
+                  if (service.placeId.isNotEmpty) {
+                    try {
+                      place = _places.firstWhere(
+                        (p) => p.id == service.placeId,
+                      );
+                    } catch (_) {}
+                  }
+
+                  final created = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          ServiceDetailScreen(service: service, place: place),
+                    ),
+                  );
+                  if (created == true) {
+                    await _loadOrders();
+                    if (mounted) {
+                      setState(() => _currentIndex = 1);
+                    }
+                  }
+                },
+                child: Column(
+                  children: [
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: color.withOpacity(0.1),
+                      child: Icon(
+                        _resolveIcon(service.iconName),
+                        color: color,
+                        size: 26,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      service.name,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      'Rp ${_formatHarga(service.price)}',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 9, color: Colors.grey[500]),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
-        );
-      },
+      ],
     );
   }
 
-  Widget _buildDefaultGrid() {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.8,
+  Widget _buildServiceCategorySelector(List<String> categories) {
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: categories.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final category = categories[index];
+          final isSelected = category == _selectedServiceCategory;
+          final color = category == _allServiceCategoriesLabel
+              ? Colors.blue
+              : _getCategoryColor(category);
+
+          return ChoiceChip(
+            label: Text(category),
+            selected: isSelected,
+            showCheckmark: false,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+            selectedColor: color.withOpacity(0.14),
+            backgroundColor: Colors.white,
+            side: BorderSide(
+              color: isSelected ? color : Colors.grey.withOpacity(0.22),
+            ),
+            labelStyle: TextStyle(
+              color: isSelected ? color : Colors.grey[700],
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            ),
+            onSelected: (_) {
+              setState(() => _selectedServiceCategory = category);
+            },
+          );
+        },
       ),
-      itemCount: _defaultCategories.length,
-      itemBuilder: (context, index) {
-        final item = _defaultCategories[index];
-        return Column(
-          children: [
-            CircleAvatar(
-              radius: 28,
-              backgroundColor: (item['color'] as Color).withOpacity(0.1),
-              child: Icon(item['icon'] as IconData, color: item['color'] as Color, size: 26),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              item['name'] as String,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
-            ),
-          ],
-        );
-      },
     );
   }
 
-  Widget _buildPlaceCard(PlaceItem place) {
+  Widget _buildPlaceCard(PlaceItem place, {String? distanceLabel}) {
     return Container(
-      width: 160,
+      width: 170,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -500,32 +687,81 @@ class _HomeScreenState extends State<HomeScreen> {
               const Expanded(
                 child: Text(
                   'JasaCepat Hub',
-                  style: TextStyle(fontSize: 10, color: Colors.purple, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.purple,
+                    fontWeight: FontWeight.w600,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             place.name,
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           Text(
             place.address,
             style: TextStyle(fontSize: 10, color: Colors.grey[500]),
-            maxLines: 2,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
+          if (distanceLabel != null) ...[
+            const SizedBox(height: 3),
+            Text(
+              distanceLabel,
+              style: const TextStyle(
+                fontSize: 10,
+                color: Colors.green,
+                fontWeight: FontWeight.bold,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildMitraCard(String name, String keahlian, String rating, String jarak) {
+  Widget _buildNearbyTechnicianList() {
+    final nearby = _recommendedServices
+        .where((item) => item.hasLocation)
+        .take(3)
+        .toList();
+
+    if (nearby.isEmpty) {
+      return _buildEmptyState(
+        icon: Icons.location_off_outlined,
+        title: 'Belum ada teknisi dalam radius 60 km',
+        message:
+            'Ubah lokasi Anda atau tambahkan koordinat layanan yang lebih dekat.',
+      );
+    }
+
+    return Column(
+      children: [
+        for (int i = 0; i < nearby.length; i++) ...[
+          _buildMitraCard(nearby[i]),
+          if (i < nearby.length - 1) const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildMitraCard(ServiceDistance recommendation) {
+    final service = recommendation.service;
+    final place = recommendation.place;
+    final color = _getCategoryColor(service.category);
+    final technicianName = place?.name ?? 'Teknisi ${service.name}';
+    final subtitle = '${service.name} - ${service.category}';
+    final rating = _ratingForService(service.id);
+
     return Card(
       color: Colors.white,
       elevation: 0,
@@ -535,45 +771,100 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: const CircleAvatar(
+        leading: CircleAvatar(
           radius: 24,
-          backgroundColor: Colors.blue,
-          child: Icon(Icons.person, color: Colors.white),
+          backgroundColor: color,
+          child: const Icon(Icons.person, color: Colors.white),
         ),
-        title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          technicianName,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(keahlian, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+            Text(
+              subtitle,
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
             const SizedBox(height: 4),
             Row(
               children: [
                 const Icon(Icons.star, color: Colors.amber, size: 16),
                 Text(
-                  ' $rating • ',
+                  ' $rating - ',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                Text(jarak, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w500)),
+                Flexible(
+                  child: Text(
+                    recommendation.distanceLabel,
+                    style: const TextStyle(
+                      color: Colors.green,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
           ],
         ),
         trailing: ElevatedButton(
-          onPressed: () {},
+          onPressed: () async {
+            final created = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ServiceDetailScreen(
+                  service: service,
+                  place: place,
+                  distanceKm: recommendation.distanceKm,
+                ),
+              ),
+            );
+            if (created == true) {
+              await _loadOrders();
+              if (mounted) {
+                setState(() => _currentIndex = 1);
+              }
+            }
+          },
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.blue,
             foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
             padding: const EdgeInsets.symmetric(horizontal: 16),
           ),
-          child: const Text('Panggil', style: TextStyle(fontWeight: FontWeight.bold)),
+          child: const Text(
+            'Panggil',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
         ),
       ),
     );
   }
 
+  String _ratingForService(String serviceId) {
+    final seed = serviceId.codeUnits.fold<int>(0, (sum, code) => sum + code);
+    final rating = 4.6 + (seed % 4) * 0.1;
+    return rating.toStringAsFixed(1);
+  }
+
   // ==================== PESANAN ====================
   Widget _buildPesananPage() {
+    final activeOrders = _orders
+        .where((order) => !_isHistoryStatus(order.status))
+        .toList();
+    final historyOrders = _orders
+        .where((order) => _isHistoryStatus(order.status))
+        .toList();
+
     return DefaultTabController(
       length: 2,
       child: Column(
@@ -593,63 +884,65 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             child: TabBarView(
               children: [
-                ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    _buildKartuPesanan(
-                      idPesanan: 'JC-90821',
-                      layanan: 'Servis AC - Cuci AC & Tambah Freon',
-                      teknisi: 'Budi Setiawan',
-                      status: 'Teknisi Menuju Lokasi',
-                      statusColor: Colors.orange,
-                      tanggal: 'Hari ini, 14:20 WIB',
-                      harga: 'Rp 185.000',
-                      icon: Icons.ac_unit,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildKartuPesanan(
-                      idPesanan: 'JC-90825',
-                      layanan: 'Pasang Lampu Kamar & Ruang Tamu',
-                      teknisi: 'Mencari Teknisi...',
-                      status: 'Menunggu Konfirmasi',
-                      statusColor: Colors.blue,
-                      tanggal: 'Hari ini, 20:00 WIB',
-                      harga: 'Rp 75.000',
-                      icon: Icons.lightbulb,
-                    ),
-                  ],
+                _buildOrderList(
+                  orders: activeOrders,
+                  emptyTitle: 'Belum ada pesanan aktif',
+                  emptyMessage: 'Pesanan yang baru dibuat akan muncul di sini.',
                 ),
-                ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    _buildKartuPesanan(
-                      idPesanan: 'JC-88102',
-                      layanan: 'Potong Rumput Halaman Depan',
-                      teknisi: 'Slamet Riyadi',
-                      status: 'Selesai',
-                      statusColor: Colors.green,
-                      tanggal: '28 Juni 2026',
-                      harga: 'Rp 120.000',
-                      icon: Icons.grass,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildKartuPesanan(
-                      idPesanan: 'JC-87551',
-                      layanan: 'Kuras Toren Air 1000L',
-                      teknisi: 'Hendra Wijaya',
-                      status: 'Dibatalkan',
-                      statusColor: Colors.red,
-                      tanggal: '20 Juni 2026',
-                      harga: 'Rp 150.000',
-                      icon: Icons.water_drop,
-                    ),
-                  ],
+                _buildOrderList(
+                  orders: historyOrders,
+                  emptyTitle: 'Riwayat pesanan masih kosong',
+                  emptyMessage:
+                      'Pesanan selesai atau dibatalkan akan tersimpan di sini.',
                 ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildOrderList({
+    required List<OrderItem> orders,
+    required String emptyTitle,
+    required String emptyMessage,
+  }) {
+    if (_isLoadingOrders) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadOrders,
+      child: orders.isEmpty
+          ? ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _buildEmptyState(
+                  icon: Icons.assignment_outlined,
+                  title: emptyTitle,
+                  message: emptyMessage,
+                ),
+              ],
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: orders.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final order = orders[index];
+                return _buildKartuPesanan(
+                  idPesanan: order.id,
+                  layanan: order.serviceName,
+                  teknisi: order.technicianName,
+                  status: _statusLabel(order.status),
+                  statusColor: _statusColor(order.status),
+                  tanggal: _formatTanggal(order.createdAt),
+                  harga: 'Rp ${_formatHarga(order.price)}',
+                  icon: Icons.home_repair_service,
+                );
+              },
+            ),
     );
   }
 
@@ -676,8 +969,18 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(idPesanan, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey[600], fontSize: 12)),
-              Text(tanggal, style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+              Text(
+                idPesanan,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[600],
+                  fontSize: 12,
+                ),
+              ),
+              Text(
+                tanggal,
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              ),
             ],
           ),
           const Divider(height: 20, thickness: 0.8),
@@ -694,9 +997,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(layanan, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(
+                      layanan,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     const SizedBox(height: 4),
-                    Text('Teknisi: $teknisi', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                    Text(
+                      'Teknisi: $teknisi',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                    ),
                   ],
                 ),
               ),
@@ -707,15 +1021,65 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: statusColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(30),
                 ),
-                child: Text(status, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12)),
+                child: Text(
+                  status,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
               ),
-              Text(harga, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue)),
+              Text(
+                harga,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.blue,
+                ),
+              ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String title,
+    required String message,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.withOpacity(0.15)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 42, color: Colors.grey[300]),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            message,
+            style: TextStyle(color: Colors.grey[500], fontSize: 13),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -725,20 +1089,44 @@ class _HomeScreenState extends State<HomeScreen> {
   // ==================== CHAT ====================
   Widget _buildChatPage() {
     final List<Map<String, dynamic>> chatList = [
-      {'name': 'Budi Setiawan (Teknisi AC)', 'message': 'Halo pak, saya sudah di jalan ya menuju rumah.', 'time': '14:25', 'unread': true, 'icon': Icons.ac_unit},
-      {'name': 'Customer Service JasaCepat', 'message': 'Apakah keluhan servis Anda kemarin sudah aman?', 'time': 'Kemarin', 'unread': false, 'icon': Icons.support_agent},
-      {'name': 'Slamet Riyadi (Kelistrikan)', 'message': 'Terima kasih banyak atas tip jasanya bos!', 'time': '28 Juni', 'unread': false, 'icon': Icons.flash_on},
+      {
+        'name': 'Budi Setiawan (Teknisi AC)',
+        'message': 'Halo pak, saya sudah di jalan ya menuju rumah.',
+        'time': '14:25',
+        'unread': true,
+        'icon': Icons.ac_unit,
+      },
+      {
+        'name': 'Customer Service JasaCepat',
+        'message': 'Apakah keluhan servis Anda kemarin sudah aman?',
+        'time': 'Kemarin',
+        'unread': false,
+        'icon': Icons.support_agent,
+      },
+      {
+        'name': 'Slamet Riyadi (Kelistrikan)',
+        'message': 'Terima kasih banyak atas tip jasanya bos!',
+        'time': '28 Juni',
+        'unread': false,
+        'icon': Icons.flash_on,
+      },
     ];
 
     return ListView.separated(
       itemCount: chatList.length,
-      separatorBuilder: (context, index) => const Divider(height: 1, thickness: 0.5),
+      separatorBuilder: (context, index) =>
+          const Divider(height: 1, thickness: 0.5),
       itemBuilder: (context, index) {
         final chat = chatList[index];
         return Container(
-          color: chat['unread'] ? Colors.blue.withOpacity(0.03) : Colors.transparent,
+          color: chat['unread']
+              ? Colors.blue.withOpacity(0.03)
+              : Colors.transparent,
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
+            ),
             leading: Stack(
               children: [
                 CircleAvatar(
@@ -765,8 +1153,19 @@ class _HomeScreenState extends State<HomeScreen> {
             title: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(chat['name'], style: TextStyle(fontWeight: chat['unread'] ? FontWeight.bold : FontWeight.w600, fontSize: 15)),
-                Text(chat['time'], style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                Text(
+                  chat['name'],
+                  style: TextStyle(
+                    fontWeight: chat['unread']
+                        ? FontWeight.bold
+                        : FontWeight.w600,
+                    fontSize: 15,
+                  ),
+                ),
+                Text(
+                  chat['time'],
+                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                ),
               ],
             ),
             subtitle: Padding(
@@ -775,11 +1174,30 @@ class _HomeScreenState extends State<HomeScreen> {
                 chat['message'],
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: chat['unread'] ? Colors.black87 : Colors.grey[600], fontSize: 13),
+                style: TextStyle(
+                  color: chat['unread'] ? Colors.black87 : Colors.grey[600],
+                  fontSize: 13,
+                ),
               ),
             ),
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const ChatScreen()));
+              if (index == 1) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ChatScreen(
+                      contactName: 'Customer Service JasaCepat',
+                      subtitle: 'Pusat Bantuan CS',
+                      isCustomerService: true,
+                    ),
+                  ),
+                );
+                return;
+              }
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ChatScreen()),
+              );
             },
           ),
         );
@@ -804,13 +1222,25 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Icon(Icons.person, size: 50, color: Colors.white),
                 ),
                 const SizedBox(height: 16),
-                Text(_userName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                Text(
+                  _userName,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(_userEmail, style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+                Text(
+                  _userEmail,
+                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                ),
                 const SizedBox(height: 12),
                 // Tampilkan lokasi tersimpan di profil
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.blue.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(20),
@@ -819,12 +1249,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.location_on, color: Colors.blue, size: 14),
+                      const Icon(
+                        Icons.location_on,
+                        color: Colors.blue,
+                        size: 14,
+                      ),
                       const SizedBox(width: 4),
                       Flexible(
                         child: Text(
                           _userAddress,
-                          style: const TextStyle(fontSize: 12, color: Colors.blue),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -838,21 +1275,21 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 12),
 
           _buildMenuProfilGroup([
-            _buildProfilItem(Icons.person_outline, 'Ubah Data Profil', onTap: () {}),
+            _buildProfilItem(
+              Icons.person_outline,
+              'Ubah Data Profil',
+              onTap: _openEditProfile,
+            ),
             _buildProfilItem(
               Icons.location_on_outlined,
               'Ubah Lokasi / Alamat Saya',
               onTap: _openEditLocation,
             ),
-            _buildProfilItem(Icons.payment_outlined, 'Metode Pembayaran', onTap: () {}),
-          ]),
-
-          const SizedBox(height: 12),
-
-          _buildMenuProfilGroup([
-            _buildProfilItem(Icons.security, 'Keamanan Akun', onTap: () {}),
-            _buildProfilItem(Icons.help_outline, 'Pusat Bantuan CS', onTap: () {}),
-            _buildProfilItem(Icons.privacy_tip_outlined, 'Kebijakan Privasi', onTap: () {}),
+            _buildProfilItem(
+              Icons.help_outline,
+              'Pusat Bantuan CS',
+              onTap: _openCustomerServiceChat,
+            ),
           ]),
 
           const SizedBox(height: 24),
@@ -881,11 +1318,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildProfilItem(IconData icon, String title, {required VoidCallback onTap}) {
+  Widget _buildProfilItem(
+    IconData icon,
+    String title, {
+    required VoidCallback onTap,
+  }) {
     return ListTile(
       leading: Icon(icon, color: Colors.blue[700]),
-      title: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+      title: Text(
+        title,
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+      ),
+      trailing: const Icon(
+        Icons.arrow_forward_ios,
+        size: 14,
+        color: Colors.grey,
+      ),
       onTap: onTap,
     );
   }
@@ -896,7 +1344,9 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Keluar Akun'),
-          content: const Text('Apakah Anda yakin ingin keluar dari aplikasi JasaCepat?'),
+          content: const Text(
+            'Apakah Anda yakin ingin keluar dari aplikasi JasaCepat?',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -910,7 +1360,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   MaterialPageRoute(builder: (context) => const LoginScreen()),
                 );
               },
-              child: const Text('Keluar', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              child: const Text(
+                'Keluar',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         );
@@ -931,5 +1387,46 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {
       return price;
     }
+  }
+
+  bool _isHistoryStatus(String status) {
+    final normalized = status.toLowerCase();
+    return normalized == 'selesai' ||
+        normalized == 'dibatalkan' ||
+        normalized == 'batal';
+  }
+
+  Color _statusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'menunggu':
+        return Colors.blue;
+      case 'diterima':
+      case 'proses':
+        return Colors.orange;
+      case 'selesai':
+        return Colors.green;
+      case 'dibatalkan':
+      case 'batal':
+        return Colors.red;
+      default:
+        return Colors.blueGrey;
+    }
+  }
+
+  String _statusLabel(String status) {
+    switch (status.toLowerCase()) {
+      case 'menunggu':
+        return 'Menunggu Admin';
+      case 'diterima':
+        return 'Diterima Admin';
+      default:
+        return status;
+    }
+  }
+
+  String _formatTanggal(DateTime date) {
+    final local = date.toLocal();
+    String twoDigits(int value) => value.toString().padLeft(2, '0');
+    return '${twoDigits(local.day)}/${twoDigits(local.month)}/${local.year} ${twoDigits(local.hour)}:${twoDigits(local.minute)}';
   }
 }

@@ -23,37 +23,43 @@ class _EditLocationScreenState extends State<EditLocationScreen> {
   late TextEditingController _lngController;
   bool _isSaving = false;
 
-  // Contoh daftar preset lokasi populer
+  // Pilihan cepat dibatasi ke area Solo Raya.
   final List<Map<String, dynamic>> _presetLocations = [
     {
-      'name': 'Monas, Jakarta Pusat',
-      'address': 'Monas, Jl. Medan Merdeka Sel., Jakarta Pusat',
-      'lat': -6.175392,
-      'lng': 106.827153,
+      'name': 'Solo Balapan',
+      'address': 'Stasiun Solo Balapan, Kestalan, Banjarsari, Surakarta',
+      'lat': -7.557628,
+      'lng': 110.821781,
     },
     {
-      'name': 'GBK, Jakarta Selatan',
-      'address': 'Gelora Bung Karno, Jl. Pintu Satu Senayan, Jakarta Selatan',
-      'lat': -6.218481,
-      'lng': 106.802459,
+      'name': 'Pasar Gede Solo',
+      'address': 'Pasar Gede Hardjonagoro, Jebres, Surakarta',
+      'lat': -7.569593,
+      'lng': 110.831751,
     },
     {
-      'name': 'Bundaran HI, Jakarta Pusat',
-      'address': 'Bundaran Hotel Indonesia, Jl. MH Thamrin, Jakarta Pusat',
-      'lat': -6.195029,
-      'lng': 106.823069,
+      'name': 'Kartasura',
+      'address': 'Kartasura, Sukoharjo, Jawa Tengah',
+      'lat': -7.551098,
+      'lng': 110.737985,
     },
     {
-      'name': 'Kota Tua, Jakarta Barat',
-      'address': 'Kawasan Kota Tua, Pinangsia, Jakarta Barat',
-      'lat': -6.137505,
-      'lng': 106.813354,
+      'name': 'Colomadu',
+      'address': 'Colomadu, Karanganyar, Jawa Tengah',
+      'lat': -7.533392,
+      'lng': 110.749064,
     },
     {
-      'name': 'TMII, Jakarta Timur',
-      'address': 'Taman Mini Indonesia Indah, Jakarta Timur',
-      'lat': -6.302424,
-      'lng': 106.895283,
+      'name': 'Boyolali Kota',
+      'address': 'Boyolali Kota, Boyolali, Jawa Tengah',
+      'lat': -7.532997,
+      'lng': 110.595919,
+    },
+    {
+      'name': 'Klaten Kota',
+      'address': 'Klaten Kota, Klaten, Jawa Tengah',
+      'lat': -7.705722,
+      'lng': 110.606758,
     },
   ];
 
@@ -173,7 +179,7 @@ class _EditLocationScreenState extends State<EditLocationScreen> {
                   const SizedBox(width: 10),
                   const Expanded(
                     child: Text(
-                      'Atur lokasi Anda agar peta dan teknisi terdekat lebih akurat.',
+                      'Atur lokasi Anda di area Solo Raya agar peta dan teknisi terdekat lebih akurat.',
                       style: TextStyle(fontSize: 13, color: Colors.blue),
                     ),
                   ),
@@ -191,7 +197,7 @@ class _EditLocationScreenState extends State<EditLocationScreen> {
             TextField(
               controller: _addressController,
               decoration: InputDecoration(
-                hintText: 'Contoh: Jl. Merdeka No. 10, Jakarta',
+                hintText: 'Contoh: Jl. Slamet Riyadi, Surakarta',
                 prefixIcon: const Icon(Icons.location_on_outlined, color: Colors.blue),
                 filled: true,
                 fillColor: Colors.white,
@@ -225,7 +231,7 @@ class _EditLocationScreenState extends State<EditLocationScreen> {
                     keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
                     decoration: InputDecoration(
                       labelText: 'Latitude',
-                      hintText: '-6.175392',
+                      hintText: '-7.557628',
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
@@ -250,7 +256,7 @@ class _EditLocationScreenState extends State<EditLocationScreen> {
                     keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
                     decoration: InputDecoration(
                       labelText: 'Longitude',
-                      hintText: '106.827153',
+                      hintText: '110.821781',
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(

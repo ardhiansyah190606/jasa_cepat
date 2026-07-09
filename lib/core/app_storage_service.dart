@@ -8,6 +8,7 @@ class AppStorageService {
   static const String _profilesKey = 'app_profiles';
   static const String _servicesKey = 'app_services';
   static const String _placesKey = 'app_places';
+  static const String _ordersKey = 'app_orders';
   static const String _userLocationKey = 'app_user_location';
 
   bool _supabaseAvailable() {
@@ -27,12 +28,7 @@ class AppStorageService {
     required String password,
     required String role,
   }) async {
-    await saveProfile(
-      name: name,
-      email: email,
-      password: password,
-      role: role,
-    );
+    await saveProfile(name: name, email: email, password: password, role: role);
   }
 
   Future<void> saveProfile({
@@ -50,7 +46,9 @@ class AppStorageService {
     };
 
     final profiles = await _getProfilesList();
-    final index = profiles.indexWhere((item) => item['email']?.toString() == email);
+    final index = profiles.indexWhere(
+      (item) => item['email']?.toString() == email,
+    );
     if (index >= 0) {
       profiles[index] = profile;
     } else {
@@ -78,7 +76,10 @@ class AppStorageService {
     return Map<String, dynamic>.from(decoded as Map);
   }
 
-  Future<Map<String, dynamic>> authenticateUser({required String email, required String password}) async {
+  Future<Map<String, dynamic>> authenticateUser({
+    required String email,
+    required String password,
+  }) async {
     if (_supabaseAvailable()) {
       try {
         final response = await Supabase.instance.client
@@ -105,7 +106,8 @@ class AppStorageService {
     }
 
     for (final profile in profiles) {
-      if (profile['email']?.toString() == email && profile['password']?.toString() == password) {
+      if (profile['email']?.toString() == email &&
+          profile['password']?.toString() == password) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(_profileKey, jsonEncode(profile));
         return profile;
@@ -180,7 +182,9 @@ class AppStorageService {
 
     final profiles = await _getProfilesList();
     final currentEmail = profile['email']?.toString();
-    final index = profiles.indexWhere((item) => item['email']?.toString() == currentEmail);
+    final index = profiles.indexWhere(
+      (item) => item['email']?.toString() == currentEmail,
+    );
     if (index >= 0) {
       profiles[index] = updatedProfile;
     } else {
@@ -189,6 +193,9 @@ class AppStorageService {
 
     await prefs.setString(_profilesKey, jsonEncode(profiles));
     await prefs.setString(_profileKey, jsonEncode(updatedProfile));
+    try {
+      await _syncProfileToSupabase(updatedProfile, previousEmail: currentEmail);
+    } catch (_) {}
   }
 
   Future<void> updatePassword(String password) async {
@@ -290,7 +297,10 @@ class AppStorageService {
     );
 
     places.add(place);
-    await prefs.setString(_placesKey, jsonEncode(places.map((e) => e.toJson()).toList()));
+    await prefs.setString(
+      _placesKey,
+      jsonEncode(places.map((e) => e.toJson()).toList()),
+    );
     await _syncPlaceToSupabase(place);
   }
 
@@ -298,11 +308,17 @@ class AppStorageService {
     final prefs = await SharedPreferences.getInstance();
     final places = await getPlaces();
     places.removeWhere((p) => p.id == placeId);
-    await prefs.setString(_placesKey, jsonEncode(places.map((e) => e.toJson()).toList()));
+    await prefs.setString(
+      _placesKey,
+      jsonEncode(places.map((e) => e.toJson()).toList()),
+    );
 
     if (_supabaseAvailable()) {
       try {
-        await Supabase.instance.client.from('places').delete().eq('id', placeId);
+        await Supabase.instance.client
+            .from('places')
+            .delete()
+            .eq('id', placeId);
       } catch (_) {}
     }
   }
@@ -315,7 +331,10 @@ class AppStorageService {
             .select()
             .eq('is_active', true);
         return response
-            .map((item) => PlaceItem.fromJson(Map<String, dynamic>.from(item as Map)))
+            .map(
+              (item) =>
+                  PlaceItem.fromJson(Map<String, dynamic>.from(item as Map)),
+            )
             .toList();
       } catch (_) {}
     }
@@ -328,7 +347,9 @@ class AppStorageService {
 
     final decoded = jsonDecode(rawData);
     if (decoded is List) {
-      return decoded.map((item) => PlaceItem.fromJson(Map<String, dynamic>.from(item))).toList();
+      return decoded
+          .map((item) => PlaceItem.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
     }
 
     return <PlaceItem>[];
@@ -345,6 +366,8 @@ class AppStorageService {
     required String category,
     String placeId = '',
     String iconName = 'build',
+    double? lat,
+    double? lng,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final services = await getServices();
@@ -358,10 +381,15 @@ class AppStorageService {
       category: category,
       placeId: placeId,
       iconName: iconName,
+      lat: lat,
+      lng: lng,
     );
 
     services.add(service);
-    await prefs.setString(_servicesKey, jsonEncode(services.map((e) => e.toJson()).toList()));
+    await prefs.setString(
+      _servicesKey,
+      jsonEncode(services.map((e) => e.toJson()).toList()),
+    );
     await _syncServiceToSupabase(service);
   }
 
@@ -371,7 +399,10 @@ class AppStorageService {
     final index = services.indexWhere((item) => item.id == service.id);
     if (index >= 0) {
       services[index] = service;
-      await prefs.setString(_servicesKey, jsonEncode(services.map((e) => e.toJson()).toList()));
+      await prefs.setString(
+        _servicesKey,
+        jsonEncode(services.map((e) => e.toJson()).toList()),
+      );
       await _syncServiceToSupabase(service);
     }
   }
@@ -380,11 +411,17 @@ class AppStorageService {
     final prefs = await SharedPreferences.getInstance();
     final services = await getServices();
     services.removeWhere((s) => s.id == serviceId);
-    await prefs.setString(_servicesKey, jsonEncode(services.map((e) => e.toJson()).toList()));
+    await prefs.setString(
+      _servicesKey,
+      jsonEncode(services.map((e) => e.toJson()).toList()),
+    );
 
     if (_supabaseAvailable()) {
       try {
-        await Supabase.instance.client.from('services').delete().eq('id', serviceId);
+        await Supabase.instance.client
+            .from('services')
+            .delete()
+            .eq('id', serviceId);
       } catch (_) {}
     }
   }
@@ -397,7 +434,10 @@ class AppStorageService {
             .select()
             .eq('is_active', true);
         return response
-            .map((item) => ServiceItem.fromJson(Map<String, dynamic>.from(item as Map)))
+            .map(
+              (item) =>
+                  ServiceItem.fromJson(Map<String, dynamic>.from(item as Map)),
+            )
             .toList();
       } catch (_) {}
     }
@@ -410,10 +450,136 @@ class AppStorageService {
 
     final decoded = jsonDecode(rawData);
     if (decoded is List) {
-      return decoded.map((item) => ServiceItem.fromJson(Map<String, dynamic>.from(item))).toList();
+      return decoded
+          .map((item) => ServiceItem.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
     }
 
     return <ServiceItem>[];
+  }
+
+  // ==================== PESANAN (ORDERS) ====================
+
+  Future<OrderItem> createOrder({
+    required ServiceItem service,
+    PlaceItem? place,
+    String notes = '',
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final profile = await getProfile();
+    final userEmail = profile['email']?.toString().isNotEmpty == true
+        ? profile['email'].toString()
+        : 'user@gmail.com';
+    final now = DateTime.now();
+    final order = OrderItem(
+      id: 'JC-${now.millisecondsSinceEpoch.toString().substring(7)}',
+      userEmail: userEmail,
+      serviceId: service.id,
+      serviceName: service.name,
+      placeId: place?.id ?? service.placeId,
+      placeName: place?.name ?? '',
+      technicianName: 'Mencari Teknisi...',
+      price: service.price,
+      notes: notes,
+      status: 'Menunggu',
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    final orders = await getOrders();
+    orders.insert(0, order);
+    await prefs.setString(
+      _ordersKey,
+      jsonEncode(orders.map((e) => e.toJson()).toList()),
+    );
+    await _syncOrderToSupabase(order);
+    return order;
+  }
+
+  Future<List<OrderItem>> getOrders({String? userEmail}) async {
+    if (_supabaseAvailable()) {
+      try {
+        List<dynamic> response;
+        if (userEmail == null || userEmail.isEmpty) {
+          response = await Supabase.instance.client
+              .from('orders')
+              .select()
+              .order('created_at', ascending: false);
+        } else {
+          response = await Supabase.instance.client
+              .from('orders')
+              .select()
+              .eq('user_email', userEmail)
+              .order('created_at', ascending: false);
+        }
+        return response
+            .map(
+              (item) =>
+                  OrderItem.fromJson(Map<String, dynamic>.from(item as Map)),
+            )
+            .toList();
+      } catch (_) {}
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final rawData = prefs.getString(_ordersKey);
+    if (rawData == null || rawData.isEmpty) {
+      return <OrderItem>[];
+    }
+
+    final decoded = jsonDecode(rawData);
+    if (decoded is! List) {
+      return <OrderItem>[];
+    }
+
+    final orders = decoded
+        .map((item) => OrderItem.fromJson(Map<String, dynamic>.from(item)))
+        .where(
+          (order) =>
+              userEmail == null ||
+              userEmail.isEmpty ||
+              order.userEmail == userEmail,
+        )
+        .toList();
+    orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return orders;
+  }
+
+  Future<void> updateOrderStatus(String orderId, String status) async {
+    final prefs = await SharedPreferences.getInstance();
+    final orders = await getOrders();
+    final index = orders.indexWhere((item) => item.id == orderId);
+    if (index >= 0) {
+      orders[index] = orders[index].copyWith(
+        status: status,
+        technicianName:
+            status == 'Diterima' &&
+                orders[index].technicianName == 'Mencari Teknisi...'
+            ? 'Teknisi JasaCepat'
+            : orders[index].technicianName,
+        updatedAt: DateTime.now(),
+      );
+      await prefs.setString(
+        _ordersKey,
+        jsonEncode(orders.map((e) => e.toJson()).toList()),
+      );
+    }
+
+    if (_supabaseAvailable()) {
+      try {
+        final updateData = {
+          'status': status,
+          'updated_at': DateTime.now().toIso8601String(),
+        };
+        if (status == 'Diterima') {
+          updateData['technician_name'] = 'Teknisi JasaCepat';
+        }
+        await Supabase.instance.client
+            .from('orders')
+            .update(updateData)
+            .eq('id', orderId);
+      } catch (_) {}
+    }
   }
 
   Future<void> clearAll() async {
@@ -422,23 +588,37 @@ class AppStorageService {
     await prefs.remove(_profilesKey);
     await prefs.remove(_servicesKey);
     await prefs.remove(_placesKey);
+    await prefs.remove(_ordersKey);
     await prefs.remove(_userLocationKey);
   }
 
   // ==================== SUPABASE SYNC ====================
 
-  Future<void> _syncProfileToSupabase(Map<String, dynamic> profile) async {
+  Future<void> _syncProfileToSupabase(
+    Map<String, dynamic> profile, {
+    String? previousEmail,
+  }) async {
     if (!_supabaseAvailable()) return;
 
     try {
+      final payload = {
+        'email': profile['email']?.toString(),
+        'name': profile['name']?.toString(),
+        'password': profile['password']?.toString(),
+        'role': profile['role']?.toString(),
+      };
+
+      if (previousEmail != null && previousEmail.isNotEmpty) {
+        await Supabase.instance.client
+            .from('profiles')
+            .update(payload)
+            .eq('email', previousEmail);
+        return;
+      }
+
       await Supabase.instance.client
           .from('profiles')
-          .upsert({
-            'email': profile['email']?.toString(),
-            'name': profile['name']?.toString(),
-            'password': profile['password']?.toString(),
-            'role': profile['role']?.toString(),
-          }, onConflict: 'email')
+          .upsert(payload, onConflict: 'email')
           .select();
     } catch (_) {}
   }
@@ -447,21 +627,20 @@ class AppStorageService {
     if (!_supabaseAvailable()) return;
 
     try {
-      await Supabase.instance.client
-          .from('services')
-          .upsert({
-            'id': service.id,
-            'name': service.name,
-            'description': service.description,
-            'detail': service.detail,
-            'price': service.price,
-            'price_unit': service.priceUnit,
-            'category': service.category,
-            'place_id': service.placeId.isEmpty ? null : service.placeId,
-            'icon_name': service.iconName,
-            'is_active': true,
-          }, onConflict: 'id')
-          .select();
+      await Supabase.instance.client.from('services').upsert({
+        'id': service.id,
+        'name': service.name,
+        'description': service.description,
+        'detail': service.detail,
+        'price': service.price,
+        'price_unit': service.priceUnit,
+        'category': service.category,
+        'place_id': service.placeId.isEmpty ? null : service.placeId,
+        'icon_name': service.iconName,
+        'latitude': service.lat,
+        'longitude': service.lng,
+        'is_active': true,
+      }, onConflict: 'id').select();
     } catch (_) {}
   }
 
@@ -469,18 +648,36 @@ class AppStorageService {
     if (!_supabaseAvailable()) return;
 
     try {
-      await Supabase.instance.client
-          .from('places')
-          .upsert({
-            'id': place.id,
-            'name': place.name,
-            'address': place.address,
-            'latitude': place.lat,
-            'longitude': place.lng,
-            'description': place.description,
-            'is_active': true,
-          }, onConflict: 'id')
-          .select();
+      await Supabase.instance.client.from('places').upsert({
+        'id': place.id,
+        'name': place.name,
+        'address': place.address,
+        'latitude': place.lat,
+        'longitude': place.lng,
+        'description': place.description,
+        'is_active': true,
+      }, onConflict: 'id').select();
+    } catch (_) {}
+  }
+
+  Future<void> _syncOrderToSupabase(OrderItem order) async {
+    if (!_supabaseAvailable()) return;
+
+    try {
+      await Supabase.instance.client.from('orders').upsert({
+        'id': order.id,
+        'user_email': order.userEmail,
+        'service_id': order.serviceId.isEmpty ? null : order.serviceId,
+        'service_name': order.serviceName,
+        'place_id': order.placeId.isEmpty ? null : order.placeId,
+        'place_name': order.placeName,
+        'technician_name': order.technicianName,
+        'price': order.price,
+        'notes': order.notes,
+        'status': order.status,
+        'created_at': order.createdAt.toIso8601String(),
+        'updated_at': order.updatedAt.toIso8601String(),
+      }, onConflict: 'id').select();
     } catch (_) {}
   }
 }
@@ -513,13 +710,13 @@ class PlaceItem {
   });
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'address': address,
-        'lat': lat,
-        'lng': lng,
-        'description': description,
-      };
+    'id': id,
+    'name': name,
+    'address': address,
+    'lat': lat,
+    'lng': lng,
+    'description': description,
+  };
 
   factory PlaceItem.fromJson(Map<String, dynamic> json) {
     return PlaceItem(
@@ -529,13 +726,13 @@ class PlaceItem {
       lat: json['lat'] != null
           ? (json['lat'] as num).toDouble()
           : json['latitude'] != null
-              ? (json['latitude'] as num).toDouble()
-              : -6.175392,
+          ? (json['latitude'] as num).toDouble()
+          : -6.175392,
       lng: json['lng'] != null
           ? (json['lng'] as num).toDouble()
           : json['longitude'] != null
-              ? (json['longitude'] as num).toDouble()
-              : 106.827153,
+          ? (json['longitude'] as num).toDouble()
+          : 106.827153,
       description: json['description']?.toString() ?? '',
     );
   }
@@ -551,6 +748,8 @@ class ServiceItem {
   final String category;
   final String placeId;
   final String iconName;
+  final double? lat;
+  final double? lng;
 
   ServiceItem({
     required this.id,
@@ -562,31 +761,140 @@ class ServiceItem {
     required this.category,
     this.placeId = '',
     this.iconName = 'build',
+    this.lat,
+    this.lng,
   });
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'description': description,
-        'detail': detail,
-        'price': price,
-        'price_unit': priceUnit,
-        'category': category,
-        'place_id': placeId,
-        'icon_name': iconName,
-      };
+    'id': id,
+    'name': name,
+    'description': description,
+    'detail': detail,
+    'price': price,
+    'price_unit': priceUnit,
+    'category': category,
+    'place_id': placeId,
+    'icon_name': iconName,
+    'lat': lat,
+    'lng': lng,
+  };
 
   factory ServiceItem.fromJson(Map<String, dynamic> json) {
+    double? parseCoordinate(String firstKey, String secondKey) {
+      final raw = json[firstKey] ?? json[secondKey];
+      if (raw == null) return null;
+      if (raw is num) return raw.toDouble();
+      return double.tryParse(raw.toString());
+    }
+
     return ServiceItem(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
       detail: json['detail']?.toString() ?? '',
       price: json['price']?.toString() ?? '0',
-      priceUnit: (json['price_unit'] ?? json['priceUnit'])?.toString() ?? 'per panggilan',
+      priceUnit:
+          (json['price_unit'] ?? json['priceUnit'])?.toString() ??
+          'per panggilan',
       category: json['category']?.toString() ?? 'Umum',
       placeId: (json['place_id'] ?? json['placeId'])?.toString() ?? '',
       iconName: (json['icon_name'] ?? json['iconName'])?.toString() ?? 'build',
+      lat: parseCoordinate('lat', 'latitude'),
+      lng: parseCoordinate('lng', 'longitude'),
+    );
+  }
+}
+
+class OrderItem {
+  final String id;
+  final String userEmail;
+  final String serviceId;
+  final String serviceName;
+  final String placeId;
+  final String placeName;
+  final String technicianName;
+  final String price;
+  final String notes;
+  final String status;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  OrderItem({
+    required this.id,
+    required this.userEmail,
+    required this.serviceId,
+    required this.serviceName,
+    this.placeId = '',
+    this.placeName = '',
+    this.technicianName = 'Mencari Teknisi...',
+    required this.price,
+    this.notes = '',
+    this.status = 'Menunggu',
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  OrderItem copyWith({
+    String? technicianName,
+    String? status,
+    DateTime? updatedAt,
+  }) {
+    return OrderItem(
+      id: id,
+      userEmail: userEmail,
+      serviceId: serviceId,
+      serviceName: serviceName,
+      placeId: placeId,
+      placeName: placeName,
+      technicianName: technicianName ?? this.technicianName,
+      price: price,
+      notes: notes,
+      status: status ?? this.status,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'user_email': userEmail,
+    'service_id': serviceId,
+    'service_name': serviceName,
+    'place_id': placeId,
+    'place_name': placeName,
+    'technician_name': technicianName,
+    'price': price,
+    'notes': notes,
+    'status': status,
+    'created_at': createdAt.toIso8601String(),
+    'updated_at': updatedAt.toIso8601String(),
+  };
+
+  factory OrderItem.fromJson(Map<String, dynamic> json) {
+    DateTime parseDate(String key) {
+      final rawValue = json[key]?.toString();
+      if (rawValue == null || rawValue.isEmpty) {
+        return DateTime.now();
+      }
+      return DateTime.tryParse(rawValue) ?? DateTime.now();
+    }
+
+    return OrderItem(
+      id: json['id']?.toString() ?? '',
+      userEmail: (json['user_email'] ?? json['userEmail'])?.toString() ?? '',
+      serviceId: (json['service_id'] ?? json['serviceId'])?.toString() ?? '',
+      serviceName:
+          (json['service_name'] ?? json['serviceName'])?.toString() ?? '',
+      placeId: (json['place_id'] ?? json['placeId'])?.toString() ?? '',
+      placeName: (json['place_name'] ?? json['placeName'])?.toString() ?? '',
+      technicianName:
+          (json['technician_name'] ?? json['technicianName'])?.toString() ??
+          'Mencari Teknisi...',
+      price: json['price']?.toString() ?? '0',
+      notes: json['notes']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'Menunggu',
+      createdAt: parseDate('created_at'),
+      updatedAt: parseDate('updated_at'),
     );
   }
 }

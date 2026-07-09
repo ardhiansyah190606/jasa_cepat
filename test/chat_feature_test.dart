@@ -7,7 +7,10 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: ChatScreen()));
 
     expect(find.text('Chat'), findsOneWidget);
-    expect(find.text('Budi Setiawan'), findsOneWidget);
-    expect(find.text('Halo pak, saya sudah di jalan ya menuju rumah.'), findsOneWidget);
+    expect(find.textContaining('Budi Setiawan'), findsOneWidget);
+    expect(
+      find.text('Halo pak, saya sudah di jalan ya menuju rumah.'),
+      findsOneWidget,
+    );
   });
 }

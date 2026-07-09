@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:jasa_cepat/core/app_storage_service.dart';
+import 'package:jasa_cepat/core/location_recommendation.dart';
 
 class ServiceDetailScreen extends StatelessWidget {
   final ServiceItem service;
   final PlaceItem? place;
+  final double? distanceKm;
 
   const ServiceDetailScreen({
     super.key,
     required this.service,
     this.place,
+    this.distanceKm,
   });
 
   IconData _resolveIcon(String iconName) {
@@ -105,14 +108,20 @@ class ServiceDetailScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.25),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
                         service.category,
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ],
@@ -143,7 +152,11 @@ class ServiceDetailScreen extends StatelessWidget {
                             color: Colors.green.withOpacity(0.1),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.payments_outlined, color: Colors.green, size: 22),
+                          child: const Icon(
+                            Icons.payments_outlined,
+                            color: Colors.green,
+                            size: 22,
+                          ),
                         ),
                         const SizedBox(width: 14),
                         Column(
@@ -159,8 +172,22 @@ class ServiceDetailScreen extends StatelessWidget {
                             ),
                             Text(
                               service.priceUnit,
-                              style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey[500],
+                              ),
                             ),
+                            if (distanceKm != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                'Jarak ${LocationRecommendation.formatDistance(distanceKm!)} dari lokasi Anda',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ],
@@ -172,7 +199,10 @@ class ServiceDetailScreen extends StatelessWidget {
                   if (service.description.isNotEmpty) ...[
                     const Text(
                       'Tentang Layanan',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Container(
@@ -181,7 +211,9 @@ class ServiceDetailScreen extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.grey.withOpacity(0.15)),
+                        border: Border.all(
+                          color: Colors.grey.withOpacity(0.15),
+                        ),
                       ),
                       child: Text(
                         service.description,
@@ -199,7 +231,10 @@ class ServiceDetailScreen extends StatelessWidget {
                   if (service.detail.isNotEmpty) ...[
                     const Text(
                       'Detail Layanan',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Container(
@@ -208,41 +243,47 @@ class ServiceDetailScreen extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.grey.withOpacity(0.15)),
+                        border: Border.all(
+                          color: Colors.grey.withOpacity(0.15),
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          ...service.detail.split('\n').where((line) => line.trim().isNotEmpty).map((line) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    margin: const EdgeInsets.only(top: 5),
-                                    width: 6,
-                                    height: 6,
-                                    decoration: BoxDecoration(
-                                      color: color,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      line.trim(),
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.grey[700],
-                                        height: 1.4,
+                          ...service.detail
+                              .split('\n')
+                              .where((line) => line.trim().isNotEmpty)
+                              .map((line) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        margin: const EdgeInsets.only(top: 5),
+                                        width: 6,
+                                        height: 6,
+                                        decoration: BoxDecoration(
+                                          color: color,
+                                          shape: BoxShape.circle,
+                                        ),
                                       ),
-                                    ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          line.trim(),
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey[700],
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                            );
-                          }).toList(),
+                                );
+                              }),
                         ],
                       ),
                     ),
@@ -253,7 +294,10 @@ class ServiceDetailScreen extends StatelessWidget {
                   if (place != null) ...[
                     const Text(
                       'Lokasi Penyedia',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Container(
@@ -261,7 +305,9 @@ class ServiceDetailScreen extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.grey.withOpacity(0.15)),
+                        border: Border.all(
+                          color: Colors.grey.withOpacity(0.15),
+                        ),
                       ),
                       child: Row(
                         children: [
@@ -271,7 +317,11 @@ class ServiceDetailScreen extends StatelessWidget {
                               color: Colors.red.withOpacity(0.1),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.place, color: Colors.red, size: 20),
+                            child: const Icon(
+                              Icons.place,
+                              color: Colors.red,
+                              size: 20,
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -288,13 +338,19 @@ class ServiceDetailScreen extends StatelessWidget {
                                 const SizedBox(height: 2),
                                 Text(
                                   place!.address,
-                                  style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey[500],
+                                  ),
                                 ),
                                 if (place!.description.isNotEmpty) ...[
                                   const SizedBox(height: 4),
                                   Text(
                                     place!.description,
-                                    style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[400],
+                                    ),
                                   ),
                                 ],
                               ],
@@ -312,10 +368,26 @@ class ServiceDetailScreen extends StatelessWidget {
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 10),
-                  _buildKeunggulan(Icons.verified_outlined, 'Teknisi Bersertifikat', 'Semua teknisi sudah terverifikasi dan berpengalaman'),
-                  _buildKeunggulan(Icons.timer_outlined, 'Cepat & Tepat Waktu', 'Teknisi tiba dalam waktu singkat sesuai jadwal'),
-                  _buildKeunggulan(Icons.price_check_outlined, 'Harga Transparan', 'Tidak ada biaya tersembunyi, harga sudah termasuk'),
-                  _buildKeunggulan(Icons.security_outlined, 'Bergaransi', 'Garansi 7 hari jika ada masalah setelah servis'),
+                  _buildKeunggulan(
+                    Icons.verified_outlined,
+                    'Teknisi Bersertifikat',
+                    'Semua teknisi sudah terverifikasi dan berpengalaman',
+                  ),
+                  _buildKeunggulan(
+                    Icons.timer_outlined,
+                    'Cepat & Tepat Waktu',
+                    'Teknisi tiba dalam waktu singkat sesuai jadwal',
+                  ),
+                  _buildKeunggulan(
+                    Icons.price_check_outlined,
+                    'Harga Transparan',
+                    'Tidak ada biaya tersembunyi, harga sudah termasuk',
+                  ),
+                  _buildKeunggulan(
+                    Icons.security_outlined,
+                    'Bergaransi',
+                    'Garansi 7 hari jika ada masalah setelah servis',
+                  ),
 
                   const SizedBox(height: 100),
                 ],
@@ -342,13 +414,29 @@ class ServiceDetailScreen extends StatelessWidget {
           height: 52,
           child: ElevatedButton.icon(
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Pesanan ${service.name} berhasil dibuat!'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-              Navigator.pop(context);
+              AppStorageService()
+                  .createOrder(service: service, place: place)
+                  .then((_) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Pesanan ${service.name} masuk ke riwayat pesanan.',
+                        ),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    Navigator.pop(context, true);
+                  })
+                  .catchError((_) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Gagal membuat pesanan. Coba lagi.'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  });
             },
             icon: const Icon(Icons.flash_on),
             label: Text(
@@ -386,9 +474,18 @@ class ServiceDetailScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
                   const SizedBox(height: 2),
-                  Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                  ),
                 ],
               ),
             ),

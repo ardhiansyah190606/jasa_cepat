@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:jasa_cepat/core/app_storage_service.dart';
+import 'package:jasa_cepat/core/location_recommendation.dart';
+import 'package:jasa_cepat/features/home/service_detail_screen.dart';
 import 'package:latlong2/latlong.dart';
 
 class MapScreen extends StatefulWidget {
@@ -21,10 +23,31 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   LatLng _center = const LatLng(-6.175392, 106.827153);
+  LatLng _userPoint = const LatLng(-6.175392, 106.827153);
   String _address = 'Lokasi Anda';
   final MapController _mapController = MapController();
   bool _isLoading = true;
   List<PlaceItem> _places = [];
+  List<ServiceItem> _services = [];
+
+  List<ServiceDistance> get _nearestServices =>
+      LocationRecommendation.nearestServices(
+        services: _services,
+        places: _places,
+        userLat: _center.latitude,
+        userLng: _center.longitude,
+        maxDistanceKm: LocationRecommendation.maxNearbyDistanceKm,
+        includeWithoutLocation: false,
+      ).where((item) => item.hasLocation).toList();
+
+  bool get _showUserPointMarker =>
+      LocationRecommendation.distanceKm(
+        fromLat: _center.latitude,
+        fromLng: _center.longitude,
+        toLat: _userPoint.latitude,
+        toLng: _userPoint.longitude,
+      ) >
+      0.03;
 
   @override
   void initState() {
@@ -37,18 +60,22 @@ class _MapScreenState extends State<MapScreen> {
       // Gunakan parameter yang dikirim, atau load dari storage
       if (widget.initialLat != null && widget.initialLng != null) {
         _center = LatLng(widget.initialLat!, widget.initialLng!);
+        _userPoint = _center;
         _address = widget.initialAddress ?? 'Lokasi Anda';
       } else {
         final loc = await AppStorageService().getUserLocation();
         _center = LatLng(loc.lat, loc.lng);
+        _userPoint = _center;
         _address = loc.address;
       }
 
       final places = await AppStorageService().getPlaces();
+      final services = await AppStorageService().getServices();
 
       if (!mounted) return;
       setState(() {
         _places = places;
+        _services = services;
         _isLoading = false;
       });
 
@@ -68,7 +95,11 @@ class _MapScreenState extends State<MapScreen> {
           children: [
             const Text(
               'Peta Teknisi JasaCepat',
-              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                fontSize: 16,
+              ),
             ),
             Text(
               _address,
@@ -93,15 +124,25 @@ class _MapScreenState extends State<MapScreen> {
                     initialZoom: 15.0,
                     maxZoom: 18.0,
                     minZoom: 3.0,
+                    onPositionChanged: (position, hasGesture) {
+                      final movedCenter = position.center;
+                      if (!hasGesture || movedCenter == null) return;
+                      setState(() {
+                        _center = movedCenter;
+                        _address =
+                            'Titik peta ${movedCenter.latitude.toStringAsFixed(5)}, ${movedCenter.longitude.toStringAsFixed(5)}';
+                      });
+                    },
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.example.jasa_cepat',
                     ),
                     MarkerLayer(
                       markers: [
-                        // Marker lokasi pengguna
+                        // Marker titik rekomendasi aktif
                         Marker(
                           point: _center,
                           width: 60,
@@ -121,54 +162,100 @@ class _MapScreenState extends State<MapScreen> {
                                     ),
                                   ],
                                 ),
-                                child: const Icon(Icons.my_location, color: Colors.white, size: 20),
+                                child: const Icon(
+                                  Icons.my_location,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
                               ),
                               const SizedBox(height: 2),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 1,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.blue,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: const Text(
-                                  'Saya',
-                                  style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                                  'Titik',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
                         ),
 
-                        // Marker teknisi terdekat (hardcode contoh)
-                        Marker(
-                          point: LatLng(_center.latitude + 0.001, _center.longitude + 0.001),
-                          width: 50,
-                          height: 50,
-                          child: GestureDetector(
-                            onTap: () => _tampilkanDetailTeknisi(context, 'Budi Setiawan', 'Servis AC'),
-                            child: const Icon(Icons.location_on, color: Colors.red, size: 40),
+                        // Marker lokasi user tersimpan
+                        if (_showUserPointMarker)
+                          Marker(
+                            point: _userPoint,
+                            width: 44,
+                            height: 44,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.18),
+                                    blurRadius: 8,
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.home_filled,
+                                color: Colors.blue,
+                                size: 30,
+                              ),
+                            ),
                           ),
-                        ),
-                        Marker(
-                          point: LatLng(_center.latitude - 0.001, _center.longitude + 0.002),
-                          width: 50,
-                          height: 50,
-                          child: GestureDetector(
-                            onTap: () => _tampilkanDetailTeknisi(context, 'Slamet Riyadi', 'Kelistrikan'),
-                            child: const Icon(Icons.location_on, color: Colors.orange, size: 40),
+
+                        // Marker layanan/teknisi terdekat dari data admin
+                        ..._nearestServices.map(
+                          (recommendation) => Marker(
+                            point: LatLng(
+                              recommendation.lat!,
+                              recommendation.lng!,
+                            ),
+                            width: 52,
+                            height: 52,
+                            child: GestureDetector(
+                              onTap: () => _tampilkanDetailLayanan(
+                                context,
+                                recommendation,
+                              ),
+                              child: const Icon(
+                                Icons.location_on,
+                                color: Colors.red,
+                                size: 42,
+                              ),
+                            ),
                           ),
                         ),
 
                         // Marker tempat dari admin
-                        ..._places.map((place) => Marker(
-                              point: LatLng(place.lat, place.lng),
-                              width: 50,
-                              height: 50,
-                              child: GestureDetector(
-                                onTap: () => _tampilkanDetailTempat(context, place),
-                                child: const Icon(Icons.store, color: Colors.purple, size: 36),
+                        ..._places.map(
+                          (place) => Marker(
+                            point: LatLng(place.lat, place.lng),
+                            width: 50,
+                            height: 50,
+                            child: GestureDetector(
+                              onTap: () =>
+                                  _tampilkanDetailTempat(context, place),
+                              child: const Icon(
+                                Icons.store,
+                                color: Colors.purple,
+                                size: 36,
                               ),
-                            )),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -184,20 +271,44 @@ class _MapScreenState extends State<MapScreen> {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(10),
                       boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8),
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                        ),
                       ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildLegend(Icons.my_location, Colors.blue, 'Lokasi Anda'),
+                        _buildLegend(
+                          Icons.my_location,
+                          Colors.blue,
+                          'Titik Peta',
+                        ),
                         const SizedBox(height: 4),
-                        _buildLegend(Icons.location_on, Colors.red, 'Teknisi'),
+                        _buildLegend(
+                          Icons.home_filled,
+                          Colors.blue,
+                          'Lokasi Anda',
+                        ),
+                        const SizedBox(height: 4),
+                        _buildLegend(
+                          Icons.location_on,
+                          Colors.red,
+                          'Jasa/Teknisi',
+                        ),
                         const SizedBox(height: 4),
                         _buildLegend(Icons.store, Colors.purple, 'Tempat Jasa'),
                       ],
                     ),
                   ),
+                ),
+
+                Positioned(
+                  left: 12,
+                  right: 86,
+                  bottom: 20,
+                  child: _buildMapRecommendationPanel(),
                 ),
 
                 // Tombol zoom
@@ -237,9 +348,16 @@ class _MapScreenState extends State<MapScreen> {
                         mini: true,
                         backgroundColor: Colors.blue,
                         onPressed: () {
-                          _mapController.move(_center, 15.0);
+                          setState(() {
+                            _center = _userPoint;
+                            _address = widget.initialAddress ?? 'Lokasi Anda';
+                          });
+                          _mapController.move(_userPoint, 15.0);
                         },
-                        child: const Icon(Icons.my_location, color: Colors.white),
+                        child: const Icon(
+                          Icons.my_location,
+                          color: Colors.white,
+                        ),
                       ),
                     ],
                   ),
@@ -260,7 +378,91 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  void _tampilkanDetailTeknisi(BuildContext context, String nama, String keahlian) {
+  Widget _buildMapRecommendationPanel() {
+    final nearest = _nearestServices.take(3).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 12),
+        ],
+      ),
+      child: nearest.isEmpty
+          ? const Text(
+              'Belum ada jasa dalam radius 60 km dari titik peta.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            )
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Rekomendasi Terdekat',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                for (int i = 0; i < nearest.length; i++) ...[
+                  _buildMapRecommendationTile(nearest[i]),
+                  if (i < nearest.length - 1) const Divider(height: 12),
+                ],
+              ],
+            ),
+    );
+  }
+
+  Widget _buildMapRecommendationTile(ServiceDistance recommendation) {
+    return InkWell(
+      onTap: () => _tampilkanDetailLayanan(context, recommendation),
+      borderRadius: BorderRadius.circular(8),
+      child: Row(
+        children: [
+          const Icon(Icons.home_repair_service, color: Colors.red, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  recommendation.service.name,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  recommendation.place?.name ??
+                      recommendation.locationSourceLabel,
+                  style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            recommendation.distanceLabel,
+            style: const TextStyle(
+              fontSize: 11,
+              color: Colors.green,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _tampilkanDetailLayanan(
+    BuildContext context,
+    ServiceDistance recommendation,
+  ) {
+    final service = recommendation.service;
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -281,24 +483,60 @@ class _MapScreenState extends State<MapScreen> {
                     child: const Icon(Icons.person, color: Colors.blue),
                   ),
                   const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(nama, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      Text(keahlian, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                    ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          service.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          service.category,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              const Text('Status: Sedang menuju ke rumah Anda.'),
+              Text('Jarak dari titik peta: ${recommendation.distanceLabel}'),
+              if (recommendation.place != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  recommendation.place!.address,
+                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                ),
+              ],
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Hubungi via Chat', style: TextStyle(color: Colors.white)),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ServiceDetailScreen(
+                          service: service,
+                          place: recommendation.place,
+                          distanceKm: recommendation.distanceKm,
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text(
+                    'Lihat Detail Jasa',
+                    style: TextStyle(color: Colors.white),
+                  ),
                 ),
               ),
             ],
@@ -333,8 +571,20 @@ class _MapScreenState extends State<MapScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(place.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                        Text(place.address, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                        Text(
+                          place.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          place.address,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 13,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -342,15 +592,23 @@ class _MapScreenState extends State<MapScreen> {
               ),
               if (place.description.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                Text(place.description, style: TextStyle(color: Colors.grey[700], fontSize: 13)),
+                Text(
+                  place.description,
+                  style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                ),
               ],
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.purple,
+                  ),
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Lihat Layanan', style: TextStyle(color: Colors.white)),
+                  child: const Text(
+                    'Lihat Layanan',
+                    style: TextStyle(color: Colors.white),
+                  ),
                 ),
               ),
             ],
