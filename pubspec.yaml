@@ -36,7 +36,7 @@ dependencies:
   cached_network_image: ^3.3.1 # Menampilkan foto profil/jasa tanpa lemot
 
   # API Client (Pusat koneksi data internet/backend)
-  dio: ^5.4.0 # 👈 TAMBAHAN PAKET DI SINI
+  dio: ^5.4.0 
   shared_preferences: ^2.5.5
   supabase_flutter: ^2.15.3
 
@@ -50,11 +50,20 @@ dev_dependencies:
   # Tambahkan package generator di bawah dev_dependencies agar bisa membuat splash otomatis
   flutter_native_splash: ^2.4.0
 
+  # Package generator untuk logo aplikasi
+  flutter_launcher_icons: ^0.13.1
+
 # Konfigurasi warna layar splash awal bawaan HP (Warna Biru JasaCepat)
 flutter_native_splash:
   color: "#2196F3"
   android_12:
     color: "#2196F3"
+
+# Konfigurasi pembuatan logo aplikasi Android & iOS
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/logo polos.png"
 
 # The following section is specific to Flutter packages.
 flutter:
