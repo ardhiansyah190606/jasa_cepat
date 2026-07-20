@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:jasa_cepat/core/app_storage_service.dart';
 import 'package:jasa_cepat/core/location_recommendation.dart';
 
@@ -416,7 +417,41 @@ class ServiceDetailScreen extends StatelessWidget {
             onPressed: () {
               AppStorageService()
                   .createOrder(service: service, place: place)
-                  .then((_) {
+                  .then((_) async {
+                    if (!context.mounted) return;
+
+                    // Buat pesan invoice WhatsApp
+                    final invoiceMessage = StringBuffer();
+                    invoiceMessage.writeln('📋 *INVOICE PESANAN - JasaCepat*');
+                    invoiceMessage.writeln('━━━━━━━━━━━━━━━━━━━━━');
+                    invoiceMessage.writeln('');
+                    invoiceMessage.writeln('🔧 *Layanan:* ${service.name}');
+                    invoiceMessage.writeln('📂 *Kategori:* ${service.category}');
+                    invoiceMessage.writeln('💰 *Harga:* Rp ${_formatHarga(service.price)} (${service.priceUnit})');
+                    if (service.description.isNotEmpty) {
+                      invoiceMessage.writeln('📝 *Deskripsi:* ${service.description}');
+                    }
+                    if (place != null) {
+                      invoiceMessage.writeln('');
+                      invoiceMessage.writeln('📍 *Lokasi Penyedia:* ${place!.name}');
+                      invoiceMessage.writeln('🏠 *Alamat:* ${place!.address}');
+                    }
+                    if (distanceKm != null) {
+                      invoiceMessage.writeln('📏 *Jarak:* ${LocationRecommendation.formatDistance(distanceKm!)}');
+                    }
+                    invoiceMessage.writeln('');
+                    invoiceMessage.writeln('━━━━━━━━━━━━━━━━━━━━━');
+                    invoiceMessage.writeln('Saya ingin memesan layanan ini. Mohon konfirmasi ketersediaan. Terima kasih! 🙏');
+
+                    // Redirect ke WhatsApp
+                    final waUrl = Uri.parse(
+                      'https://wa.me/6289630984128?text=${Uri.encodeComponent(invoiceMessage.toString())}',
+                    );
+
+                    if (await canLaunchUrl(waUrl)) {
+                      await launchUrl(waUrl, mode: LaunchMode.externalApplication);
+                    }
+
                     if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
